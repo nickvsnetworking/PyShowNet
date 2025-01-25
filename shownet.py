@@ -53,28 +53,45 @@ def handle_packet(packet):
     channel_grid = {}
 
     print("\n" + str(sequence).zfill(4) + ":" + str(iter) + " channel values: " + channel_values)
-    channel = channel_values[cursor:cursor+4]
-    channel = int(channel, 16)
-    cursor += 4
-    print(str(sequence).zfill(4) + ":" + str(sequence_packet).zfill(2) + " Channels: " + str(channel) + " values: ", end="")
     while cursor < loa:
-        value = channel_values[cursor:cursor+2]
-        cursor += 2
-        iter += 1
+        #if the first byte is 8 then it is RLE compressed
+        if channel_values[cursor:cursor+3] == "008":
+            print("RLE compressed beginning")
+            repeat_count = int(channel_values[cursor+3:cursor+4], 16)
+            cursor = cursor + 4
+            
+            channel_value = int(channel_values[cursor:cursor+2], 16)
+            channel_value = str(channel_value).zfill(2)
+            
+            print("Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times")
+            
+            #Set next n number of channels to the repeated value
+            for i in range(repeat_count):
+                channel_grid[iter] = channel_value
+                iter = iter + 1
+            cursor = cursor + 2
+            print("Channel Value: " + str(channel_value) + " is repeated " + str(repeat_count) + " times")
+            iter = iter + 1
+        else:
+            #RLE Compressed continues
+            print("RLE compressed continuing with remaining data: " + channel_values[cursor:])
+            repeat_count = int(channel_values[cursor:cursor+2], 16)
+            cursor = cursor + 2
+            channel_value = int(channel_values[cursor:cursor+2], 16)
+            channel_value = str(channel_value).zfill(2)
+            cursor = cursor + 2
+            print("RLE2: Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times")
+            for i in range(repeat_count):
+                channel_grid[iter] = channel_value
+                iter = iter + 1
+            print(channel_grid)
+            print("Remaining channel values: " + channel_values[cursor:])
+            print(channel_grid)
+            return
+        
 
-        #Set the channel value in the grid (we add 1 as 0 is the lowest we go but channels start at 1 in DMX)
-        channel_grid[str(channel)] = int(value, 16)
         
-        try:
-            print("\t" + str(iter).zfill(2) + ":" + str(value).zfill(2) + "(" + str(int(value, 16)).zfill(2) + ")" + " ", end="")
-        except:
-            print("")
-        
-        #if after this we get ff00 then we are at the end of the packet
-        if channel_values[cursor:cursor+4] == "ff00":
-            print("\nEnd of packet")
-            break
-        
+
         
 #if run as main program
 if __name__ == "__main__":
