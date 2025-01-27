@@ -85,7 +85,7 @@ def handle_packet(packet):
             cursor = cursor + 4
             return
         elif repeat_count[0:1] == "8":
-            print("Got RLE compressed data")
+            #print("Got RLE compressed data")
             repeat_count = int(repeat_count[1:2], 16)
             cursor = cursor + 2
             channel_value = int(channel_values[cursor:cursor+2], 16)
@@ -99,7 +99,7 @@ def handle_packet(packet):
             print("Current Iter: " + str(iter) + " for starting_channel_offset " + str(starting_channel_offset))
             print("Remaining " + str(len(channel_values[cursor:])) + " channel values: " + channel_values[cursor:])
         else:
-            print("Got simple data - Reading the next " + str(repeat_count) + " channels")
+            print("Got simple data - Reading the next " + str(repeat_count) + " channels one-by-one")
             cursor = cursor + 2
             repeat_count = int(repeat_count, 16)
             while repeat_count > 0:
