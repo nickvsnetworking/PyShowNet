@@ -3,12 +3,27 @@ import pprint
 import logging
 import sys
 import struct
+from stupidArtnet import StupidArtnet
 
+# THESE ARE MOST LIKELY THE VALUES YOU WILL BE NEEDING
+target_ip = '255.255.255.255'		# typically in 2.x or 10.x range
+universe = 0 										# see docs
+packet_size = 512								# it is not necessary to send whole universe
+
+# CREATING A STUPID ARTNET OBJECT
+# SETUP NEEDS A FEW ELEMENTS
+# TARGET_IP   = DEFAULT 127.0.0.1
+# UNIVERSE    = DEFAULT 0
+# PACKET_SIZE = DEFAULT 512
+# FRAME_RATE  = DEFAULT 30
+# ISBROADCAST = DEFAULT FALSE
+a = StupidArtnet(target_ip, universe, packet_size, 30, True, True)
 
 old_payload = ""
 old_packet = ""
 old_sequence = 0
 sequence_packet = 0
+dmx_packet = bytearray(packet_size)
 
 def handle_packet(packet):
     global old_payload
@@ -119,7 +134,12 @@ def handle_packet(packet):
             print(channel_grid)
             print("Current Iter: " + str(iter) + " for starting_channel_offset " + str(starting_channel_offset))
             print("Remaining " + str(len(channel_values[cursor:])) + " channel values: " + channel_values[cursor:])
-    
+
+        
+        for channel in channel_grid:
+            dmx_packet[channel] = channel_grid[channel]
+        a.set(dmx_packet)
+        a.show()
     # while cursor < loa:
     #     #if the first byte is 8 then it is RLE compressed
     #     if channel_values[cursor:cursor+3] == "008":
