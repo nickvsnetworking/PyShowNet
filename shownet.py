@@ -67,7 +67,10 @@ def handle_packet(packet):
         repeat_count = channel_values[cursor:cursor+2]
         
         print("Repeat Count: " + str(repeat_count) + " (hex) / " + str(int(repeat_count, 16)) + " (dec)")
-        if int(repeat_count, 16) > 127 and channel_values[cursor:cursor+4] != "ff00":
+        
+        #Need to determine how we know if the channel is an RLE compressed channel or a starting channel
+        
+        if int(repeat_count, 16) > 127 and repeat_count[0:1] != "8" and channel_values[cursor:cursor+4] != "ff00":
             print("Repeat Count is greater than 127 - It is actually a starting channel")
             
             move_forward_positions = int(repeat_count, 16) - 127
@@ -99,9 +102,11 @@ def handle_packet(packet):
             print("Current Iter: " + str(iter) + " for starting_channel_offset " + str(starting_channel_offset))
             print("Remaining " + str(len(channel_values[cursor:])) + " channel values: " + channel_values[cursor:])
         else:
-            print("Got simple data - Reading the next " + str(repeat_count) + " channels one-by-one")
+            #Convert to decimal
+            print("Got simple data with repeat count: " + str(repeat_count))
+            repeat_count = int(str(repeat_count), 16)
+            print("Got simple data - Reading the next " + str(repeat_count) + " channels one-by-one in position " + str(starting_channel_offset+iter))
             cursor = cursor + 2
-            repeat_count = int(repeat_count, 16)
             while repeat_count > 0:
                 channel_grid[starting_channel_offset+iter] = int(channel_values[cursor:cursor+2], 16)
                 iter = iter + 1
