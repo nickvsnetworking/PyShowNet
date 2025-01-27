@@ -64,7 +64,12 @@ def handle_packet(packet):
    
     
     while cursor < loa:
+        RLE_Encoded = False
+
         repeat_count = channel_values[cursor:cursor+2]
+
+        if repeat_count[0:1] == "8":
+            RLE_Encoded = True
         
         print("Repeat Count: " + str(repeat_count) + " (hex) / " + str(int(repeat_count, 16)) + " (dec)")
         
@@ -72,24 +77,23 @@ def handle_packet(packet):
         
         if int(repeat_count, 16) > 127 and repeat_count[0:1] != "8" and channel_values[cursor:cursor+4] != "ff00":
             print("Repeat Count is greater than 127 - It is actually a starting channel")
-            
-            move_forward_positions = int(repeat_count, 16) - 127
-            print("Need to move forward " + str(move_forward_positions) + " positions from starting_channel_offset: " + str(starting_channel_offset) + " and iter: " + str(iter))
-            print("This channel should be: " + str(starting_channel_offset + move_forward_positions + iter - 1))
-            starting_channel_offset = starting_channel_offset + move_forward_positions + iter -1
-            iter = 0
-            print("New starting_channel_offset: " + str(starting_channel_offset) + " and iter: " + str(iter))
-            cursor = cursor + 2
-            repeat_count = channel_values[cursor:cursor+2]
-            print("Updated Repeat Count: " + str(repeat_count) + " (hex) / " + str(int(repeat_count, 16)) + " (dec)")
-
+            #This is a RLE compressed channel
+            repeat_count = int(repeat_count, 16) - 128
+            print("128: Got RLE compressed data with repeat count: " + str(repeat_count))
+            #Convert back to hex
+            repeat_count = format(repeat_count, 'x')
+            print("128: Got RLE compressed data with repeat count: " + str(repeat_count))
+            RLE_Encoded = True
         if channel_values[cursor:cursor+4] == "ff00":
             print("Got FF00 - Skipping any further processing of this packet")
             cursor = cursor + 4
             return
-        elif repeat_count[0:1] == "8":
+        elif RLE_Encoded:
             #print("Got RLE compressed data")
-            repeat_count = int(repeat_count[1:2], 16)
+            if repeat_count[0:1] == "8":
+                repeat_count = int(repeat_count[1:2], 16)
+            else:
+                repeat_count = int(repeat_count, 16)
             cursor = cursor + 2
             channel_value = int(channel_values[cursor:cursor+2], 16)
             cursor = cursor + 2
