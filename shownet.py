@@ -53,41 +53,68 @@ def handle_packet(packet):
     channel_grid = {}
 
     print("\n" + str(sequence).zfill(4) + ":" + str(iter) + " channel values: " + channel_values)
+    
+    cursor = 0
+    #This works for 1 through 2 at value XX
     while cursor < loa:
-        #if the first byte is 8 then it is RLE compressed
-        if channel_values[cursor:cursor+3] == "008":
-            print("RLE compressed beginning")
-            repeat_count = int(channel_values[cursor+3:cursor+4], 16)
-            cursor = cursor + 4
-            
-            channel_value = int(channel_values[cursor:cursor+2], 16)
-            channel_value = str(channel_value).zfill(2)
-            
-            print("Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times")
-            
-            #Set next n number of channels to the repeated value
-            for i in range(repeat_count):
-                channel_grid[iter] = channel_value
-                iter = iter + 1
-            cursor = cursor + 2
-            print("Channel Value: " + str(channel_value) + " is repeated " + str(repeat_count) + " times")
+        starting_channel = int(channel_values[cursor:cursor+2], 16) + 1
+        cursor = cursor + 2
+        print("Starting Channel: " + str(starting_channel))
+        repeat_count = int(channel_values[cursor:cursor+2], 16)
+        cursor = cursor + 2
+        print("Repeat Count: " + str(repeat_count))
+        channel_value = int(channel_values[cursor:cursor+2], 16)
+        cursor = cursor + 2
+        print("Channel Value: " + str(channel_value))
+        while repeat_count > 0:
+            channel_grid[starting_channel+iter] = channel_value
             iter = iter + 1
-        else:
-            #RLE Compressed continues
-            print("RLE compressed continuing with remaining data: " + channel_values[cursor:])
-            repeat_count = int(channel_values[cursor:cursor+2], 16)
-            cursor = cursor + 2
-            channel_value = int(channel_values[cursor:cursor+2], 16)
-            channel_value = str(channel_value).zfill(2)
-            cursor = cursor + 2
-            print("RLE2: Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times")
-            for i in range(repeat_count):
-                channel_grid[iter] = channel_value
-                iter = iter + 1
-            print(channel_grid)
-            print("Remaining channel values: " + channel_values[cursor:])
-            print(channel_grid)
-            return
+            repeat_count = repeat_count - 1
+        print(channel_grid)
+        return
+    
+    # while cursor < loa:
+    #     #if the first byte is 8 then it is RLE compressed
+    #     if channel_values[cursor:cursor+3] == "008":
+    #         print("RLE compressed beginning")
+    #         iter = int(channel_values[cursor:cursor+2], 16)
+    #         repeat_count = int(channel_values[cursor+3:cursor+4], 16)
+    #         cursor = cursor + 4
+            
+    #         channel_value = int(channel_values[cursor:cursor+2], 16)
+    #         channel_value = str(channel_value).zfill(2)
+            
+    #         print("Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times with iter: " + str(iter))
+            
+    #         #Set next n number of channels to the repeated value
+    #         for i in range(repeat_count):
+    #             channel_grid[iter] = channel_value
+    #             iter = iter + 1
+    #         cursor = cursor + 2
+    #         print("Channel Value: " + str(channel_value) + " is repeated " + str(repeat_count) + " times")
+    #         iter = iter + 1
+    #     else:
+    #         #RLE Compressed continues
+    #         print("RLE compressed continuing with remaining data: " + channel_values[cursor:])
+            
+    #         if channel_values[cursor:cursor+4] == "00ff":
+    #             print("Got 00FF - Skipping")
+    #             cursor = cursor + 4
+    #             continue
+            
+    #         repeat_count = int(channel_values[cursor:cursor+2], 16)
+    #         cursor = cursor + 2
+    #         channel_value = int(channel_values[cursor:cursor+2], 16)
+    #         channel_value = str(channel_value).zfill(2)
+    #         cursor = cursor + 2
+    #         print("RLE2: Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times")
+    #         for i in range(repeat_count):
+    #             channel_grid[iter] = channel_value
+    #             iter = iter + 1
+    #         print(channel_grid)
+    #         print("Remaining channel values: " + channel_values[cursor:])
+    #         print(channel_grid)
+    #         return
         
 
         
