@@ -58,6 +58,8 @@ def handle_packet(packet):
     
     if payload == old_payload:
         print("Duplicate packet")
+        a.set(dmx_packet)
+        a.show()
         return
     else:
         old_payload = payload
