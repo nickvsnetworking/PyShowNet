@@ -56,22 +56,52 @@ def handle_packet(packet):
     
     cursor = 0
     #This works for 1 through 2 at value XX
+    
+    starting_channel = int(channel_values[cursor:cursor+2], 16) + 1
+    cursor = cursor + 2
+    print("Starting Channel: " + str(starting_channel).zfill(3)) 
+     
+    
     while cursor < loa:
-        starting_channel = int(channel_values[cursor:cursor+2], 16) + 1
-        cursor = cursor + 2
-        print("Starting Channel: " + str(starting_channel))
-        repeat_count = int(channel_values[cursor:cursor+2], 16)
-        cursor = cursor + 2
-        print("Repeat Count: " + str(repeat_count))
-        channel_value = int(channel_values[cursor:cursor+2], 16)
-        cursor = cursor + 2
-        print("Channel Value: " + str(channel_value))
-        while repeat_count > 0:
-            channel_grid[starting_channel+iter] = channel_value
-            iter = iter + 1
-            repeat_count = repeat_count - 1
-        print(channel_grid)
-        return
+        repeat_count = channel_values[cursor:cursor+2]
+        
+        print("Repeat Count: " + str(repeat_count) + " (hex) / " + str(int(repeat_count, 16)) + " (dec)")
+        if int(repeat_count, 16) > 127:
+            print("Repeat Count is greater than 127 - It is actually a starting channel")
+            starting_channel = int(repeat_count, 16) - 127
+            print("Starting Channel: " + str(starting_channel).zfill(3))
+            cursor = cursor + 2
+            repeat_count = channel_values[cursor:cursor+2]
+            print("Repeat Count: " + str(repeat_count) + " (hex)")
+
+        if channel_values[cursor:cursor+4] == "ff00":
+            print("Got FF00 - Skipping")
+            cursor = cursor + 4
+            return
+        elif repeat_count[0:1] == "8":
+            print("Got RLE compressed data")
+            repeat_count = int(repeat_count[1:2], 16)
+            cursor = cursor + 2
+            channel_value = int(channel_values[cursor:cursor+2], 16)
+            cursor = cursor + 2
+            print("RLE compressed data repeats: " + str(repeat_count) + " times with value " + str(channel_value))
+            while repeat_count > 0:
+                channel_grid[starting_channel+iter] = channel_value
+                iter = iter + 1
+                repeat_count = repeat_count - 1
+            print(channel_grid)
+            print("Remaining " + str(len(channel_values[cursor:])) + " channel values: " + channel_values[cursor:])
+        else:
+            print("Got simple data - Reading the next " + str(repeat_count) + " channels")
+            cursor = cursor + 2
+            repeat_count = int(repeat_count, 16)
+            while repeat_count > 0:
+                channel_grid[starting_channel+iter] = int(channel_values[cursor:cursor+2], 16)
+                iter = iter + 1
+                cursor = cursor + 2
+                repeat_count = repeat_count - 1
+            print(channel_grid)
+            print("Remaining " + str(len(channel_values[cursor:])) + " channel values: " + channel_values[cursor:])
     
     # while cursor < loa:
     #     #if the first byte is 8 then it is RLE compressed
