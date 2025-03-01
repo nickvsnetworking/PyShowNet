@@ -1,11 +1,17 @@
 # PyShowNet
 
-Simple Python Strand Shownet listener
+Python Strand Shownet to ArtNet converter.
 
-#1@FF
-hex_packet = "808f00000000010000000000000000040000000000000b001f0000000000000006560000f401636f6e736f6c65310001ffff00ff00ff00ff00ff00ff00ff00ff008700"
+This listens for Strand Shownet (Used in the Strand 300 and 500 series console of the 1990s) and converts it to ArtNet.
 
-#1@FF, 2@2
-hex_packet = "808f00000000010000000000000000040000000000000b002000000000000000068d0000f401636f6e736f6c65310002ff02ff00ff00ff00ff00ff00ff00ff00ff008600"
-#1@FF, 2@2, 3@2
-hex_packet = "808f00000000010000000000000000040000000000000b00210000000000000006ad0000f401636f6e736f6c65310003ff0203ff00ff00ff00ff00ff00ff00ff00ff008500"
+These consoles were capable of outputting up to 8192 channels, but in the case of the Strand 520i, only had 4 DMX ports (2048 channels).
+
+This software allows you to use the Networker application to use all 8192 channels over a network on Artnet using the great [StupidArtnet](https://github.com/cpvalente/stupidArtnet) library.
+
+The encoding is super weird, and this was just a hobby project / challenge. I probably wouldn't recommend using a 30 year old lighting console to run shows, nor use this software to output Artnet!
+
+Shownet sends to the broadcast address of the network on UDP port 2501.
+
+Strand built support for "Remote Video" to view the screen of the console from other parts of the venue, using gear like the SN100 Network Node Model 65100. Alas I don't have one of these to be able to sniff / reverse engineer the protocol, it looks like it's running on port 2500, but I haven't done much digging on this.
+
+There's also `serialremote.py` which is a small tkinter application to act as a riggers remote / remote control using the console's Serial Port.
