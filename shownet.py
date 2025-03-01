@@ -2,28 +2,58 @@ from socket import *
 import pprint
 import logging
 import sys
+import math
 import struct
 from stupidArtnet import StupidArtnet
 
-# THESE ARE MOST LIKELY THE VALUES YOU WILL BE NEEDING
-target_ip = '255.255.255.255'		# typically in 2.x or 10.x range
-universe = 0 										# see docs
-packet_size = 512								# it is not necessary to send whole universe
 
-# CREATING A STUPID ARTNET OBJECT
-# SETUP NEEDS A FEW ELEMENTS
-# TARGET_IP   = DEFAULT 127.0.0.1
-# UNIVERSE    = DEFAULT 0
-# PACKET_SIZE = DEFAULT 512
-# FRAME_RATE  = DEFAULT 30
-# ISBROADCAST = DEFAULT FALSE
-a = StupidArtnet(target_ip, universe, packet_size, 30, True, True)
+universe = 1
+artnet_universes = {}
+while universe < 8:
+    print("Creating Artnet Universe " + str(universe))
+    artnet_universes[universe] = StupidArtnet(target_ip='255.255.255.255', universe=universe, packet_size=512, fps=30, broadcast=True)
+    universe = universe + 1
+
 
 old_payload = ""
 old_packet = ""
 old_sequence = 0
 sequence_packet = 0
-dmx_packet = bytearray(packet_size)
+
+
+def output_artnet_frame(channel_grid):
+    #Fill in gaps in channel grid between values
+    last_channel = 0
+    channel_grid = dict(sorted(channel_grid.items()))
+    channel_grid_filled = {}
+    for channel in channel_grid:
+        if channel - last_channel > 1:
+            for i in range(last_channel+1, channel):
+                channel_grid_filled[i] = 0
+        channel_grid_filled[channel] = channel_grid[channel]
+        last_channel = channel
+        
+    #pprint.pprint(channel_grid_filled)
+
+    #Generate a DMX packet for each Artnet Universe
+    dmx_packets = {}
+    for universe in artnet_universes:
+        dmx_packets[universe] = bytearray(512)
+    
+    #iterate through the channel grid and populate the DMX packets
+    for channel in channel_grid_filled:
+        #Calculate the correct Universe for the channel by dividing by 512 and rounding up
+        universe = math.ceil(channel/512)
+        dmx_channel = channel - ((universe-1)*512)
+        #print("Setting DMX Channel " + str(universe) + ":" + str(dmx_channel) + " to " + str(channel_grid_filled[channel]))
+        dmx_packets[universe][channel-(512*universe)-1] = channel_grid_filled[channel]
+    
+    print("Sending DMX packets")
+    #pprint.pprint(dmx_packets)
+    
+    for universe in dmx_packets:
+        artnet_universes[universe].set(dmx_packets[universe])
+        artnet_universes[universe].show()
 
 def handle_packet(packet):
     global old_payload
@@ -32,7 +62,7 @@ def handle_packet(packet):
     global sequence_packet
     #Convert to Hex
     packet = packet.hex()
-    
+    print('\n\n')
     if packet[0:4] == "808f":
         pass
     else:
@@ -58,8 +88,8 @@ def handle_packet(packet):
     
     if payload == old_payload:
         print("Duplicate packet")
-        a.set(dmx_packet)
-        a.show()
+        # artnet_universe_a.set(dmx_packet)
+        # artnet_universe_a.show()
         return
     else:
         old_payload = payload
@@ -67,6 +97,7 @@ def handle_packet(packet):
     loa = len(channel_values)
     cursor = 0
     iter = 0
+    universe = 1
     channel_grid = {}
 
     print("\n" + str(sequence).zfill(4) + ":" + str(iter) + " channel values: " + channel_values)
@@ -78,7 +109,12 @@ def handle_packet(packet):
     cursor = cursor + 2
     print("Starting Channel: " + str(starting_channel_offset).zfill(3)) 
     
-   
+#Channel 1337 at almost full (fe)
+#00ff00ff00ba0001fe ba = 186
+#00ff00ff00ba0001e9 ba = 186
+#Current thinking:
+#Channel 1337 is at Universe 3 (512 + 512 + 313)
+#313 - 127 = 186
     
     while cursor < loa:
         RLE_Encoded = False
@@ -96,15 +132,41 @@ def handle_packet(packet):
             print("Repeat Count is greater than 127 - It is actually a starting channel")
             #This is a RLE compressed channel
             repeat_count = int(repeat_count, 16) - 128
-            print("128: Got RLE compressed data with repeat count: " + str(repeat_count))
+            print("128: Got RLE compressed data with repeat count: " + str(repeat_count) + " (int)")
             #Convert back to hex
             repeat_count = format(repeat_count, 'x')
-            print("128: Got RLE compressed data with repeat count: " + str(repeat_count))
+            print("128: Got RLE compressed data with repeat count: " + str(repeat_count) + " (hex)")
             RLE_Encoded = True
         if channel_values[cursor:cursor+4] == "ff00":
-            print("Got FF00 - Skipping any further processing of this packet")
+            print("\n\nGot FF00 - Skipping ahead - Current channel: " + str(starting_channel_offset+iter))
             cursor = cursor + 4
-            return
+            #Iterate through the channels until we hit a non-FF00 channel
+            blocks = 1
+            while channel_values[cursor:cursor+4] == "ff00":
+                print("\t Skipping another FF00 channel")
+                iter = iter + 1
+                cursor = cursor + 4
+                blocks += 1
+            print("Finished skipping FF00 channels, found " + str(blocks) + " blocks")
+                        
+            print("Current Iter: " + str(iter) + " for starting_channel_offset " + str(starting_channel_offset))
+            
+            starting_channel_offset = ((126*blocks) + iter + 2)
+            print("New starting channel: " + str(starting_channel_offset))
+            iter = 0
+            
+            print("Remaining " + str(len(channel_values[cursor:])) + " bytes of channel values: " + channel_values[cursor:])
+
+            #if we've only got 4 bytes left, we're at the end of the packet
+            if len(channel_values[cursor:]) <= 4:
+                print("End of packet")
+                print(channel_grid)
+                output_artnet_frame(channel_grid)
+                return
+            if starting_channel_offset+iter > 700:
+                print("Too many channels")
+                print(channel_grid)
+                return
         elif RLE_Encoded:
             #print("Got RLE compressed data")
             if repeat_count[0:1] == "8":
@@ -136,55 +198,11 @@ def handle_packet(packet):
             print(channel_grid)
             print("Current Iter: " + str(iter) + " for starting_channel_offset " + str(starting_channel_offset))
             print("Remaining " + str(len(channel_values[cursor:])) + " channel values: " + channel_values[cursor:])
+            if (starting_channel_offset+iter) > 700:
+                print("Too many channels")
+                print(channel_grid)
+                sys.exit()
 
-        
-        for channel in channel_grid:
-            dmx_packet[channel] = channel_grid[channel]
-        a.set(dmx_packet)
-        a.show()
-    # while cursor < loa:
-    #     #if the first byte is 8 then it is RLE compressed
-    #     if channel_values[cursor:cursor+3] == "008":
-    #         print("RLE compressed beginning")
-    #         iter = int(channel_values[cursor:cursor+2], 16)
-    #         repeat_count = int(channel_values[cursor+3:cursor+4], 16)
-    #         cursor = cursor + 4
-            
-    #         channel_value = int(channel_values[cursor:cursor+2], 16)
-    #         channel_value = str(channel_value).zfill(2)
-            
-    #         print("Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times with iter: " + str(iter))
-            
-    #         #Set next n number of channels to the repeated value
-    #         for i in range(repeat_count):
-    #             channel_grid[iter] = channel_value
-    #             iter = iter + 1
-    #         cursor = cursor + 2
-    #         print("Channel Value: " + str(channel_value) + " is repeated " + str(repeat_count) + " times")
-    #         iter = iter + 1
-    #     else:
-    #         #RLE Compressed continues
-    #         print("RLE compressed continuing with remaining data: " + channel_values[cursor:])
-            
-    #         if channel_values[cursor:cursor+4] == "00ff":
-    #             print("Got 00FF - Skipping")
-    #             cursor = cursor + 4
-    #             continue
-            
-    #         repeat_count = int(channel_values[cursor:cursor+2], 16)
-    #         cursor = cursor + 2
-    #         channel_value = int(channel_values[cursor:cursor+2], 16)
-    #         channel_value = str(channel_value).zfill(2)
-    #         cursor = cursor + 2
-    #         print("RLE2: Value " + str(channel_value) + " repeats: " + str(repeat_count) + " times")
-    #         for i in range(repeat_count):
-    #             channel_grid[iter] = channel_value
-    #             iter = iter + 1
-    #         print(channel_grid)
-    #         print("Remaining channel values: " + channel_values[cursor:])
-    #         print(channel_grid)
-    #         return
-        
 
         
 
@@ -196,8 +214,10 @@ if __name__ == "__main__":
     s=socket(AF_INET, SOCK_DGRAM)
     s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     s.bind(('', 2501))
-
+    print("Bound to port 2501")
     #Listen for a packet and print the contents as hex
+    
+    print("Listening for packets...")
     while True:
         packet, addr = s.recvfrom(1310)
         handle_packet(packet)
